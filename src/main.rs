@@ -295,6 +295,31 @@ enum Commands {
         #[arg(long)]
         assignee: Option<String>,
     },
+
+    /// Add a blocking dependency (blocker blocks id)
+    Block {
+        /// Issue that is blocked
+        id: String,
+        /// Issue that blocks it
+        blocker: String,
+    },
+
+    /// Remove a blocking dependency
+    Unblock {
+        /// Issue that was blocked
+        id: String,
+        /// Issue that was blocking it
+        blocker: String,
+    },
+
+    /// Show dependency tree
+    Tree {
+        /// Root issue ID
+        id: String,
+    },
+
+    /// Detect circular dependencies
+    Cycles,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -556,6 +581,265 @@ fn cmd_update(
     Ok(())
 }
 
+fn cmd_block(store: &mut Store, id: &str, blocker: &str, json_output: bool) -> Result<(), String> {
+    if id == blocker {
+        return Err("Issue cannot block itself".to_string());
+    }
+
+    // Verify both issues exist
+    if !store.issues.contains_key(id) {
+        return Err(format!("Issue not found: {}", id));
+    }
+    if !store.issues.contains_key(blocker) {
+        return Err(format!("Issue not found: {}", blocker));
+    }
+
+    // Check if already blocked
+    {
+        let issue = store.issues.get(id).unwrap();
+        if issue.blocked_by.contains(&blocker.to_string()) {
+            return Err(format!("{} already blocked by {}", id, blocker));
+        }
+    }
+
+    // Add bidirectional relationship
+    let now = Utc::now();
+    {
+        let issue = store.issues.get_mut(id).unwrap();
+        issue.blocked_by.push(blocker.to_string());
+        issue.updated_at = now;
+    }
+    {
+        let blocker_issue = store.issues.get_mut(blocker).unwrap();
+        blocker_issue.blocks.push(id.to_string());
+        blocker_issue.updated_at = now;
+    }
+
+    store.save()?;
+
+    if json_output {
+        println!(r#"{{"blocked":"{}","blocker":"{}"}}"#, id, blocker);
+    } else {
+        println!("{} now blocked by {}", id, blocker);
+    }
+
+    Ok(())
+}
+
+fn cmd_unblock(store: &mut Store, id: &str, blocker: &str, json_output: bool) -> Result<(), String> {
+    // Verify both issues exist
+    if !store.issues.contains_key(id) {
+        return Err(format!("Issue not found: {}", id));
+    }
+    if !store.issues.contains_key(blocker) {
+        return Err(format!("Issue not found: {}", blocker));
+    }
+
+    // Check if relationship exists
+    {
+        let issue = store.issues.get(id).unwrap();
+        if !issue.blocked_by.contains(&blocker.to_string()) {
+            return Err(format!("{} is not blocked by {}", id, blocker));
+        }
+    }
+
+    // Remove bidirectional relationship
+    let now = Utc::now();
+    {
+        let issue = store.issues.get_mut(id).unwrap();
+        issue.blocked_by.retain(|b| b != blocker);
+        issue.updated_at = now;
+    }
+    {
+        let blocker_issue = store.issues.get_mut(blocker).unwrap();
+        blocker_issue.blocks.retain(|b| b != id);
+        blocker_issue.updated_at = now;
+    }
+
+    store.save()?;
+
+    if json_output {
+        println!(r#"{{"unblocked":"{}","was_blocker":"{}"}}"#, id, blocker);
+    } else {
+        println!("{} no longer blocked by {}", id, blocker);
+    }
+
+    Ok(())
+}
+
+fn cmd_tree(store: &Store, id: &str, json_output: bool) -> Result<(), String> {
+    let issue = store.issues.get(id).ok_or_else(|| format!("Issue not found: {}", id))?;
+
+    if json_output {
+        // Build tree structure as JSON
+        let tree = build_tree_json(store, id, &mut vec![]);
+        println!("{}", serde_json::to_string_pretty(&tree).unwrap());
+        return Ok(());
+    }
+
+    // Pretty print tree
+    println!();
+    print_tree_node(store, issue, "", true, true, &mut vec![]);
+
+    Ok(())
+}
+
+fn build_tree_json(store: &Store, id: &str, visited: &mut Vec<String>) -> serde_json::Value {
+    if visited.contains(&id.to_string()) {
+        return serde_json::json!({"id": id, "cycle": true});
+    }
+    visited.push(id.to_string());
+
+    let issue = match store.issues.get(id) {
+        Some(i) => i,
+        None => return serde_json::json!({"id": id, "missing": true}),
+    };
+
+    let children: Vec<_> = issue
+        .blocked_by
+        .iter()
+        .map(|child_id| build_tree_json(store, child_id, visited))
+        .collect();
+
+    visited.pop();
+
+    serde_json::json!({
+        "id": issue.id,
+        "title": issue.title,
+        "status": issue.status,
+        "blocked_by": children
+    })
+}
+
+fn print_tree_node(store: &Store, issue: &Issue, prefix: &str, is_root: bool, is_last: bool, visited: &mut Vec<String>) {
+    let status_tag = match issue.status {
+        Status::Open => "[OPEN]",
+        Status::InProgress => "[IN_PROGRESS]",
+        Status::Closed => "[CLOSED]",
+    };
+
+    if visited.contains(&issue.id) {
+        if is_root {
+            println!("{}: {} [CYCLE]", issue.id, truncate(&issue.title, 30));
+        } else {
+            let connector = if is_last { "└── " } else { "├── " };
+            println!("{}{}{}: {} [CYCLE]", prefix, connector, issue.id, truncate(&issue.title, 30));
+        }
+        return;
+    }
+    visited.push(issue.id.clone());
+
+    if is_root {
+        println!("{}: {} {}", issue.id, truncate(&issue.title, 30), status_tag);
+    } else {
+        let connector = if is_last { "└── " } else { "├── " };
+        println!("{}{}{}: {} {}", prefix, connector, issue.id, truncate(&issue.title, 30), status_tag);
+    }
+
+    let new_prefix = if is_root {
+        "".to_string()
+    } else if is_last {
+        format!("{}    ", prefix)
+    } else {
+        format!("{}│   ", prefix)
+    };
+
+    let blockers = &issue.blocked_by;
+    for (i, blocker_id) in blockers.iter().enumerate() {
+        let is_last_child = i == blockers.len() - 1;
+        if let Some(blocker) = store.issues.get(blocker_id) {
+            print_tree_node(store, blocker, &new_prefix, false, is_last_child, visited);
+        } else {
+            let child_connector = if is_last_child { "└── " } else { "├── " };
+            println!("{}{}{} [MISSING]", new_prefix, child_connector, blocker_id);
+        }
+    }
+
+    visited.pop();
+}
+
+fn cmd_cycles(store: &Store, json_output: bool) -> Result<(), String> {
+    let mut cycles: Vec<Vec<String>> = vec![];
+
+    for id in store.issues.keys() {
+        let mut visited = vec![];
+        let mut path = vec![];
+        find_cycles(store, id, &mut visited, &mut path, &mut cycles);
+    }
+
+    // Deduplicate cycles (same cycle can be found from different starting points)
+    let mut unique_cycles: Vec<Vec<String>> = vec![];
+    for cycle in cycles {
+        let normalized = normalize_cycle(&cycle);
+        if !unique_cycles.iter().any(|c| normalize_cycle(c) == normalized) {
+            unique_cycles.push(cycle);
+        }
+    }
+
+    if json_output {
+        println!("{}", serde_json::to_string(&unique_cycles).unwrap());
+        return Ok(());
+    }
+
+    if unique_cycles.is_empty() {
+        println!("No cycles detected.");
+    } else {
+        println!("Found {} cycle(s):", unique_cycles.len());
+        for (i, cycle) in unique_cycles.iter().enumerate() {
+            println!("  {}. {} -> {}", i + 1, cycle.join(" -> "), cycle[0]);
+        }
+    }
+
+    Ok(())
+}
+
+fn find_cycles(
+    store: &Store,
+    id: &str,
+    visited: &mut Vec<String>,
+    path: &mut Vec<String>,
+    cycles: &mut Vec<Vec<String>>,
+) {
+    if path.contains(&id.to_string()) {
+        // Found a cycle
+        let cycle_start = path.iter().position(|x| x == id).unwrap();
+        let cycle: Vec<String> = path[cycle_start..].to_vec();
+        cycles.push(cycle);
+        return;
+    }
+
+    if visited.contains(&id.to_string()) {
+        return;
+    }
+
+    visited.push(id.to_string());
+    path.push(id.to_string());
+
+    if let Some(issue) = store.issues.get(id) {
+        for blocker in &issue.blocked_by {
+            find_cycles(store, blocker, visited, path, cycles);
+        }
+    }
+
+    path.pop();
+}
+
+fn normalize_cycle(cycle: &[String]) -> Vec<String> {
+    if cycle.is_empty() {
+        return vec![];
+    }
+    // Rotate so smallest element is first
+    let min_pos = cycle
+        .iter()
+        .enumerate()
+        .min_by_key(|(_, v)| *v)
+        .map(|(i, _)| i)
+        .unwrap_or(0);
+    let mut normalized: Vec<String> = cycle[min_pos..].to_vec();
+    normalized.extend(cycle[..min_pos].to_vec());
+    normalized
+}
+
 fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max {
         s.to_string()
@@ -593,6 +877,10 @@ fn main() {
                         priority,
                         assignee,
                     } => cmd_update(&mut store, &id, status, priority, assignee, cli.json),
+                    Commands::Block { id, blocker } => cmd_block(&mut store, &id, &blocker, cli.json),
+                    Commands::Unblock { id, blocker } => cmd_unblock(&mut store, &id, &blocker, cli.json),
+                    Commands::Tree { id } => cmd_tree(&store, &id, cli.json),
+                    Commands::Cycles => cmd_cycles(&store, cli.json),
                 },
                 Err(e) => Err(e),
             }

@@ -1268,7 +1268,7 @@ fn cmd_import(store: &mut Store, file: &Path, keep_ids: bool, json_output: bool)
             }
         };
 
-        // Parse issue_type
+        // Parse issue_type (unknown types map to task)
         let issue_type: IssueType = match beads.issue_type.parse() {
             Ok(t) => t,
             Err(_) => {
@@ -1276,9 +1276,9 @@ fn cmd_import(store: &mut Store, file: &Path, keep_ids: bool, json_output: bool)
                     line_num,
                     issue_id: Some(beads.id.clone()),
                     field: "issue_type".to_string(),
-                    message: format!("Unknown type '{}', expected bug/feature/task/epic/chore/refactor/spike", beads.issue_type),
+                    message: format!("Unknown type '{}' mapped to 'task'", beads.issue_type),
                 });
-                continue;
+                IssueType::Task
             }
         };
 

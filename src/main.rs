@@ -81,6 +81,13 @@ impl std::str::FromStr for IssueType {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+struct Comment {
+    author: String,
+    text: String,
+    created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Issue {
     id: String,
     title: String,
@@ -96,6 +103,8 @@ struct Issue {
     session_id: Option<String>,
     #[serde(default)]
     labels: Vec<String>,
+    #[serde(default)]
+    comments: Vec<Comment>,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -345,6 +354,27 @@ enum Commands {
         #[arg(long)]
         session: String,
     },
+
+    /// Add or remove a label
+    Label {
+        /// Issue ID
+        id: String,
+        /// Action: add or remove
+        action: String,
+        /// Label name
+        label: String,
+    },
+
+    /// Add a comment to an issue
+    Comment {
+        /// Issue ID
+        id: String,
+        /// Comment text
+        text: String,
+        /// Author name
+        #[arg(long, default_value = "anonymous")]
+        author: String,
+    },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -423,6 +453,7 @@ fn cmd_create(
         assignee: None,
         session_id: None,
         labels: vec![],
+        comments: vec![],
         created_at: now,
         updated_at: now,
         closed_at: None,
@@ -534,6 +565,21 @@ fn cmd_show(store: &Store, id: &str, json_output: bool) -> Result<(), String> {
     }
     if !issue.blocks.is_empty() {
         println!("Blocks: {}", issue.blocks.join(", "));
+    }
+    if !issue.labels.is_empty() {
+        println!();
+        println!("Labels: {}", issue.labels.join(", "));
+    }
+    if !issue.comments.is_empty() {
+        println!();
+        println!("Comments ({}):", issue.comments.len());
+        for comment in &issue.comments {
+            println!("  [{}] {}: {}",
+                comment.created_at.format("%Y-%m-%d %H:%M"),
+                comment.author,
+                comment.text
+            );
+        }
     }
 
     Ok(())
@@ -964,6 +1010,68 @@ fn cmd_mine(store: &Store, session: &str, json_output: bool) -> Result<(), Strin
     Ok(())
 }
 
+fn cmd_label(store: &mut Store, id: &str, action: &str, label: &str, json_output: bool) -> Result<(), String> {
+    let issue = store.issues.get_mut(id).ok_or_else(|| format!("Issue not found: {}", id))?;
+
+    match action {
+        "add" => {
+            if issue.labels.contains(&label.to_string()) {
+                return Err(format!("Label '{}' already exists on {}", label, id));
+            }
+            issue.labels.push(label.to_string());
+            issue.labels.sort();
+        }
+        "remove" => {
+            if !issue.labels.contains(&label.to_string()) {
+                return Err(format!("Label '{}' not found on {}", label, id));
+            }
+            issue.labels.retain(|l| l != label);
+        }
+        _ => return Err(format!("Unknown action: {} (use 'add' or 'remove')", action)),
+    }
+
+    issue.updated_at = Utc::now();
+    let issue_clone = issue.clone();
+    store.save()?;
+
+    if json_output {
+        println!("{}", serde_json::to_string(&issue_clone).unwrap());
+    } else {
+        println!("{} label '{}' {} {}",
+            if action == "add" { "Added" } else { "Removed" },
+            label,
+            if action == "add" { "to" } else { "from" },
+            id
+        );
+    }
+
+    Ok(())
+}
+
+fn cmd_comment(store: &mut Store, id: &str, text: &str, author: &str, json_output: bool) -> Result<(), String> {
+    let issue = store.issues.get_mut(id).ok_or_else(|| format!("Issue not found: {}", id))?;
+
+    let comment = Comment {
+        author: author.to_string(),
+        text: text.to_string(),
+        created_at: Utc::now(),
+    };
+
+    issue.comments.push(comment.clone());
+    issue.updated_at = Utc::now();
+
+    let issue_clone = issue.clone();
+    store.save()?;
+
+    if json_output {
+        println!("{}", serde_json::to_string(&comment).unwrap());
+    } else {
+        println!("Added comment to {} ({} comments total)", id, issue_clone.comments.len());
+    }
+
+    Ok(())
+}
+
 fn cmd_ready(store: &Store, json_output: bool) -> Result<(), String> {
     // Ready = open issues where all blockers are closed (or no blockers)
     let mut ready: Vec<_> = store
@@ -1070,6 +1178,8 @@ fn main() {
                     Commands::Claim { id, session } => cmd_claim(&mut store, &id, &session, cli.json),
                     Commands::Release { id } => cmd_release(&mut store, &id, cli.json),
                     Commands::Mine { session } => cmd_mine(&store, &session, cli.json),
+                    Commands::Label { id, action, label } => cmd_label(&mut store, &id, &action, &label, cli.json),
+                    Commands::Comment { id, text, author } => cmd_comment(&mut store, &id, &text, &author, cli.json),
                 },
                 Err(e) => Err(e),
             }

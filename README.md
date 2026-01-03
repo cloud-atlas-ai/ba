@@ -1,9 +1,9 @@
-# ac
+# ba
 
 Simple task tracking for LLM sessions.
 
 ```
-ac - because sometimes you need to go back before bd
+ba - because sometimes you need to go back before bd
 ```
 
 A spiritual fork of [beads](https://github.com/steveyegge/beads) (`bd`), keeping the simplicity of v0.9.6 with added session-based claiming for multi-agent coordination.
@@ -18,7 +18,7 @@ A spiritual fork of [beads](https://github.com/steveyegge/beads) (`bd`), keeping
 ## Installation
 
 ```bash
-cargo install ac
+cargo install ba
 # or build from source
 cargo build --release
 ```
@@ -26,28 +26,31 @@ cargo build --release
 ## Quick Start
 
 ```bash
+# Show quick start guide for LLMs
+ba quickstart
+
 # Initialize in your project
-ac init
+ba init
 
 # Create issues
-ac create "Fix auth bug" -t bug -p 1
-ac create "Add feature" -t feature -d "Description here"
+ba create "Fix auth bug" -t bug -p 1
+ba create "Add feature" -t feature -d "Description here"
 
 # List issues (excludes closed by default)
-ac list
-ac list --all              # Include closed
-ac list --status open      # Filter by status
+ba list
+ba list --all              # Include closed
+ba list --status open      # Filter by status
 
 # Show issue details
-ac show ab-x7k2
+ba show ab-x7k2
 
 # Update issues
-ac update ab-x7k2 --status in_progress
-ac update ab-x7k2 --priority 0
-ac update ab-x7k2 --assignee alice
+ba update ab-x7k2 --status in_progress
+ba update ab-x7k2 --priority 0
+ba update ab-x7k2 --assignee alice
 
 # Close issues
-ac close ab-x7k2 --reason "Fixed in commit abc123"
+ba close ab-x7k2 --reason "Fixed in commit abc123"
 ```
 
 ## Dependencies
@@ -56,19 +59,19 @@ Track blocking relationships between issues:
 
 ```bash
 # Add a blocking dependency (blocker blocks id)
-ac block ab-x7k2 ab-y8m3    # ab-x7k2 is now blocked by ab-y8m3
+ba block ab-x7k2 ab-y8m3    # ab-x7k2 is now blocked by ab-y8m3
 
 # Remove a blocking dependency
-ac unblock ab-x7k2 ab-y8m3
+ba unblock ab-x7k2 ab-y8m3
 
 # Visualize dependency tree
-ac tree ab-x7k2
+ba tree ab-x7k2
 # Output:
 # ab-x7k2: Fix auth bug [OPEN]
 # └── ab-y8m3: Add user model [IN_PROGRESS]
 
 # Detect circular dependencies
-ac cycles
+ba cycles
 ```
 
 ## Ready Queue
@@ -76,7 +79,7 @@ ac cycles
 Show issues ready to work on (open + not blocked):
 
 ```bash
-ac ready
+ba ready
 # Output:
 #   ID        P  TYPE     TITLE
 #   ------------------------------------------------------------
@@ -97,14 +100,14 @@ When multiple LLM agents work on the same codebase, use claims to coordinate:
 
 ```bash
 # Claim an issue (caller provides their session ID)
-ac claim ab-x7k2 --session claude-abc123
+ba claim ab-x7k2 --session claude-abc123
 # Sets status to in_progress, records session_id
 
 # See what you've claimed
-ac mine --session claude-abc123
+ba mine --session claude-abc123
 
 # Release when done or switching
-ac release ab-x7k2
+ba release ab-x7k2
 # Sets status back to open, clears session_id
 ```
 
@@ -116,16 +119,39 @@ Organize and discuss issues:
 
 ```bash
 # Add/remove labels
-ac label ab-x7k2 add urgent
-ac label ab-x7k2 add backend
-ac label ab-x7k2 remove urgent
+ba label ab-x7k2 add urgent
+ba label ab-x7k2 add backend
+ba label ab-x7k2 remove urgent
 
 # Add comments
-ac comment ab-x7k2 "Found the root cause" --author claude
-ac comment ab-x7k2 "Fixed in commit abc123"  # defaults to anonymous
+ba comment ab-x7k2 "Found the root cause" --author claude
+ba comment ab-x7k2 "Fixed in commit abc123"  # defaults to anonymous
 ```
 
-Labels and comments are shown in `ac show` output.
+Labels and comments are shown in `ba show` output.
+
+## Importing from Beads
+
+Migrate issues from a beads (`bd`) export file:
+
+```bash
+# Import with new IDs (uses project prefix)
+ba import .beads/issues.jsonl
+
+# Keep original beads IDs
+ba import .beads/issues.jsonl --keep-ids
+```
+
+The import handles dependencies automatically and provides clear error messages:
+
+```
+Imported 112 issues (0 skipped, 1 errors)
+
+Errors:
+  Line 46: Issue 'as-9q7' - issue_type: Unknown type 'merge-request', expected bug/feature/task/epic/chore/refactor/spike
+```
+
+Only `blocks` dependencies are imported (other types like `related`, `parent-child`, `discovered-from` are skipped).
 
 ## Issue Types
 
@@ -147,7 +173,7 @@ Labels and comments are shown in `ac show` output.
 
 ## Storage
 
-Data stored in `.ac/` directory:
+Data stored in `.ba/` directory:
 - `config.json` - Project config (version, ID prefix)
 - `issues.jsonl` - One issue per line, sorted by ID
 
@@ -155,7 +181,7 @@ Data stored in `.ac/` directory:
 
 - **Git-friendly**: One issue per line = conflicts are per-issue
 - **Human-readable**: Easy to inspect with standard tools
-- **Grep-able**: `grep ab-x7k2 .ac/issues.jsonl`
+- **Grep-able**: `grep ab-x7k2 .ba/issues.jsonl`
 
 ## IDs
 
@@ -171,9 +197,9 @@ Same project always gets same prefix, different projects get different prefixes.
 All commands support `--json` for programmatic use:
 
 ```bash
-ac --json list
-ac --json show ab-x7k2
-ac --json create "New issue" -t task
+ba --json list
+ba --json show ab-x7k2
+ba --json create "New issue" -t task
 ```
 
 ## Acknowledgment

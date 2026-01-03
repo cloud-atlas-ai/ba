@@ -1,11 +1,10 @@
-//! ac - Simple task tracking for LLM sessions
+//! ba - Simple task tracking for LLM sessions
 //!
 //! A spiritual fork of beads (bd), keeping the simplicity of v0.9.6
 //! with added session-based claiming for multi-agent coordination.
 
 use chrono::{DateTime, Utc};
 use clap::{Parser, Subcommand};
-use rand::Rng;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
@@ -119,6 +118,52 @@ fn default_priority() -> u8 {
     2
 }
 
+// Beads import types - using Value for flexible parsing with clear errors
+#[derive(Debug, Deserialize)]
+struct BeadsDependency {
+    issue_id: String,
+    depends_on_id: String,
+    #[serde(rename = "type")]
+    dep_type: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct BeadsIssue {
+    id: String,
+    title: String,
+    #[serde(default)]
+    description: String,
+    status: String,
+    #[serde(default = "default_priority")]
+    priority: u8,
+    issue_type: String,
+    created_at: String,
+    updated_at: String,
+    #[serde(default)]
+    closed_at: Option<String>,
+    #[serde(default)]
+    dependencies: Vec<BeadsDependency>,
+}
+
+#[derive(Debug)]
+struct ImportError {
+    line_num: usize,
+    issue_id: Option<String>,
+    field: String,
+    message: String,
+}
+
+impl std::fmt::Display for ImportError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.issue_id {
+            Some(id) => write!(f, "Line {}: Issue '{}' - {}: {}",
+                self.line_num, id, self.field, self.message),
+            None => write!(f, "Line {}: {}: {}",
+                self.line_num, self.field, self.message),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct Config {
     version: u8,
@@ -132,22 +177,22 @@ struct Config {
 struct Store {
     config: Config,
     issues: HashMap<String, Issue>,
-    ac_dir: PathBuf,
+    ba_dir: PathBuf,
 }
 
 impl Store {
-    fn load(ac_dir: &Path) -> Result<Self, String> {
-        let config_path = ac_dir.join(CONFIG_FILE);
+    fn load(ba_dir: &Path) -> Result<Self, String> {
+        let config_path = ba_dir.join(CONFIG_FILE);
         let config: Config = if config_path.exists() {
             let content = fs::read_to_string(&config_path)
                 .map_err(|e| format!("Failed to read config: {}", e))?;
             serde_json::from_str(&content)
                 .map_err(|e| format!("Failed to parse config: {}", e))?
         } else {
-            return Err("Not initialized. Run 'ac init' first.".to_string());
+            return Err("Not initialized. Run 'ba init' first.".to_string());
         };
 
-        let issues_path = ac_dir.join(ISSUES_FILE);
+        let issues_path = ba_dir.join(ISSUES_FILE);
         let mut issues = HashMap::new();
         if issues_path.exists() {
             let file = File::open(&issues_path)
@@ -167,7 +212,7 @@ impl Store {
         Ok(Store {
             config,
             issues,
-            ac_dir: ac_dir.to_path_buf(),
+            ba_dir: ba_dir.to_path_buf(),
         })
     }
 
@@ -176,8 +221,8 @@ impl Store {
         let mut sorted: Vec<_> = self.issues.values().collect();
         sorted.sort_by(|a, b| a.id.cmp(&b.id));
 
-        let issues_path = self.ac_dir.join(ISSUES_FILE);
-        let tmp_path = self.ac_dir.join("issues.jsonl.tmp");
+        let issues_path = self.ba_dir.join(ISSUES_FILE);
+        let tmp_path = self.ba_dir.join("issues.jsonl.tmp");
 
         let mut file = File::create(&tmp_path)
             .map_err(|e| format!("Failed to create temp file: {}", e))?;
@@ -195,23 +240,41 @@ impl Store {
         Ok(())
     }
 
-    fn generate_id(&self) -> String {
-        let mut rng = rand::thread_rng();
-        loop {
-            let random: String = (0..4)
-                .map(|_| {
-                    let idx = rng.gen_range(0..36);
+    fn generate_id(&self, title: &str, timestamp: &DateTime<Utc>) -> String {
+        let input = format!("{}{}", title, timestamp.to_rfc3339());
+        let mut hasher = Sha256::new();
+        hasher.update(input.as_bytes());
+        let hash = hasher.finalize();
+
+        // Try sliding window: bytes 0-3, then 1-4, then 2-5, etc.
+        // SHA256 gives 32 bytes, so we can slide up to 28 times
+        for offset in 0..28 {
+            let suffix: String = hash[offset..offset + 4]
+                .iter()
+                .map(|b| {
+                    let idx = (b % 36) as usize;
                     if idx < 10 {
-                        (b'0' + idx) as char
+                        (b'0' + idx as u8) as char
                     } else {
-                        (b'a' + idx - 10) as char
+                        (b'a' + (idx - 10) as u8) as char
                     }
                 })
                 .collect();
-            let id = format!("{}-{}", self.config.prefix, random);
+
+            let id = format!("{}-{}", self.config.prefix, suffix);
             if !self.issues.contains_key(&id) {
                 return id;
             }
+        }
+
+        // Extremely unlikely fallback: append counter
+        let mut counter = 0u32;
+        loop {
+            let id = format!("{}-{:04x}", self.config.prefix, counter);
+            if !self.issues.contains_key(&id) {
+                return id;
+            }
+            counter += 1;
         }
     }
 }
@@ -221,12 +284,12 @@ impl Store {
 // ─────────────────────────────────────────────────────────────────────────────
 
 #[derive(Parser)]
-#[command(name = "ac")]
+#[command(name = "ba")]
 #[command(about = "Simple task tracking for LLM sessions")]
 #[command(version)]
 struct Cli {
-    /// Data directory (default: .ac/)
-    #[arg(long, default_value = ".ac")]
+    /// Data directory (default: .ba/)
+    #[arg(long, default_value = ".ba")]
     dir: PathBuf,
 
     /// Output in JSON format
@@ -239,7 +302,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Initialize .ac/ directory
+    /// Initialize .ba/ directory
     Init,
 
     /// Create a new issue
@@ -375,6 +438,18 @@ enum Commands {
         #[arg(long, default_value = "anonymous")]
         author: String,
     },
+
+    /// Import issues from beads (bd) export
+    Import {
+        /// Input file (beads JSONL export)
+        file: PathBuf,
+        /// Keep original IDs (default: generate new with ba prefix)
+        #[arg(long)]
+        keep_ids: bool,
+    },
+
+    /// Quick start guide for LLMs
+    Quickstart,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -441,7 +516,7 @@ fn cmd_create(
     }
 
     let now = Utc::now();
-    let id = store.generate_id();
+    let id = store.generate_id(&title, &now);
 
     let issue = Issue {
         id: id.clone(),
@@ -842,24 +917,24 @@ fn cmd_cycles(store: &Store, json_output: bool) -> Result<(), String> {
     }
 
     // Deduplicate cycles (same cycle can be found from different starting points)
-    let mut unique_cycles: Vec<Vec<String>> = vec![];
+    let mut unbaue_cycles: Vec<Vec<String>> = vec![];
     for cycle in cycles {
         let normalized = normalize_cycle(&cycle);
-        if !unique_cycles.iter().any(|c| normalize_cycle(c) == normalized) {
-            unique_cycles.push(cycle);
+        if !unbaue_cycles.iter().any(|c| normalize_cycle(c) == normalized) {
+            unbaue_cycles.push(cycle);
         }
     }
 
     if json_output {
-        println!("{}", serde_json::to_string(&unique_cycles).unwrap());
+        println!("{}", serde_json::to_string(&unbaue_cycles).unwrap());
         return Ok(());
     }
 
-    if unique_cycles.is_empty() {
+    if unbaue_cycles.is_empty() {
         println!("No cycles detected.");
     } else {
-        println!("Found {} cycle(s):", unique_cycles.len());
-        for (i, cycle) in unique_cycles.iter().enumerate() {
+        println!("Found {} cycle(s):", unbaue_cycles.len());
+        for (i, cycle) in unbaue_cycles.iter().enumerate() {
             println!("  {}. {} -> {}", i + 1, cycle.join(" -> "), cycle[0]);
         }
     }
@@ -1072,6 +1147,317 @@ fn cmd_comment(store: &mut Store, id: &str, text: &str, author: &str, json_outpu
     Ok(())
 }
 
+fn cmd_import(store: &mut Store, file: &Path, keep_ids: bool, json_output: bool) -> Result<(), String> {
+    use std::io::BufRead;
+
+    let file_handle = File::open(file)
+        .map_err(|e| format!("Failed to open '{}': {}", file.display(), e))?;
+    let reader = BufReader::new(file_handle);
+
+    let mut imported = 0;
+    let mut skipped = 0;
+    let mut errors: Vec<ImportError> = vec![];
+    let mut id_map: HashMap<String, String> = HashMap::new(); // old_id -> new_id
+
+    // First pass: parse all issues and build ID map
+    let mut beads_issues: Vec<(usize, BeadsIssue)> = vec![];
+
+    for (line_num, line) in reader.lines().enumerate() {
+        let line_num = line_num + 1; // 1-indexed for user display
+        let line = match line {
+            Ok(l) => l,
+            Err(e) => {
+                errors.push(ImportError {
+                    line_num,
+                    issue_id: None,
+                    field: "line".to_string(),
+                    message: format!("Failed to read: {}", e),
+                });
+                continue;
+            }
+        };
+
+        if line.trim().is_empty() {
+            continue;
+        }
+
+        // First try to get the ID for better error messages
+        let raw: serde_json::Value = match serde_json::from_str(&line) {
+            Ok(v) => v,
+            Err(e) => {
+                errors.push(ImportError {
+                    line_num,
+                    issue_id: None,
+                    field: "json".to_string(),
+                    message: format!("Invalid JSON: {}", e),
+                });
+                continue;
+            }
+        };
+
+        let issue_id = raw.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
+
+        // Now parse as BeadsIssue
+        let beads_issue: BeadsIssue = match serde_json::from_value(raw.clone()) {
+            Ok(i) => i,
+            Err(e) => {
+                // Try to identify which field failed
+                let field = if raw.get("title").is_none() {
+                    "title (missing)"
+                } else if raw.get("status").is_none() {
+                    "status (missing)"
+                } else if raw.get("issue_type").is_none() {
+                    "issue_type (missing)"
+                } else if raw.get("created_at").is_none() {
+                    "created_at (missing)"
+                } else if raw.get("updated_at").is_none() {
+                    "updated_at (missing)"
+                } else {
+                    "parsing"
+                };
+                errors.push(ImportError {
+                    line_num,
+                    issue_id,
+                    field: field.to_string(),
+                    message: format!("{}", e),
+                });
+                continue;
+            }
+        };
+
+        beads_issues.push((line_num, beads_issue));
+    }
+
+    // Build ID map (before creating issues, so we can resolve dependencies)
+    for (_, beads) in &beads_issues {
+        let new_id = if keep_ids {
+            beads.id.clone()
+        } else {
+            // Parse timestamp for ID generation
+            let ts = DateTime::parse_from_rfc3339(&beads.created_at)
+                .map(|dt| dt.with_timezone(&Utc))
+                .unwrap_or_else(|_| Utc::now());
+            store.generate_id(&beads.title, &ts)
+        };
+        id_map.insert(beads.id.clone(), new_id);
+    }
+
+    // Second pass: create issues with resolved dependencies
+    for (line_num, beads) in beads_issues {
+        let new_id = id_map.get(&beads.id).unwrap().clone();
+
+        // Check for duplicate
+        if store.issues.contains_key(&new_id) {
+            skipped += 1;
+            continue;
+        }
+
+        // Parse status
+        let status = match beads.status.as_str() {
+            "open" => Status::Open,
+            "in_progress" => Status::InProgress,
+            "closed" => Status::Closed,
+            other => {
+                errors.push(ImportError {
+                    line_num,
+                    issue_id: Some(beads.id.clone()),
+                    field: "status".to_string(),
+                    message: format!("Unknown status '{}', expected open/in_progress/closed", other),
+                });
+                continue;
+            }
+        };
+
+        // Parse issue_type
+        let issue_type: IssueType = match beads.issue_type.parse() {
+            Ok(t) => t,
+            Err(_) => {
+                errors.push(ImportError {
+                    line_num,
+                    issue_id: Some(beads.id.clone()),
+                    field: "issue_type".to_string(),
+                    message: format!("Unknown type '{}', expected bug/feature/task/epic/chore/refactor/spike", beads.issue_type),
+                });
+                continue;
+            }
+        };
+
+        // Parse timestamps
+        let created_at = match DateTime::parse_from_rfc3339(&beads.created_at) {
+            Ok(dt) => dt.with_timezone(&Utc),
+            Err(e) => {
+                errors.push(ImportError {
+                    line_num,
+                    issue_id: Some(beads.id.clone()),
+                    field: "created_at".to_string(),
+                    message: format!("Invalid timestamp '{}': {}", beads.created_at, e),
+                });
+                continue;
+            }
+        };
+
+        let updated_at = match DateTime::parse_from_rfc3339(&beads.updated_at) {
+            Ok(dt) => dt.with_timezone(&Utc),
+            Err(e) => {
+                errors.push(ImportError {
+                    line_num,
+                    issue_id: Some(beads.id.clone()),
+                    field: "updated_at".to_string(),
+                    message: format!("Invalid timestamp '{}': {}", beads.updated_at, e),
+                });
+                continue;
+            }
+        };
+
+        let closed_at = if let Some(ref ca) = beads.closed_at {
+            match DateTime::parse_from_rfc3339(ca) {
+                Ok(dt) => Some(dt.with_timezone(&Utc)),
+                Err(e) => {
+                    errors.push(ImportError {
+                        line_num,
+                        issue_id: Some(beads.id.clone()),
+                        field: "closed_at".to_string(),
+                        message: format!("Invalid timestamp '{}': {}", ca, e),
+                    });
+                    continue;
+                }
+            }
+        } else {
+            None
+        };
+
+        // Build blocked_by from dependencies where this issue depends on another
+        let mut blocked_by: Vec<String> = vec![];
+        for dep in &beads.dependencies {
+            if dep.dep_type == "blocks" && dep.issue_id == beads.id {
+                if let Some(new_blocker_id) = id_map.get(&dep.depends_on_id) {
+                    blocked_by.push(new_blocker_id.clone());
+                }
+            }
+        }
+
+        let issue = Issue {
+            id: new_id.clone(),
+            title: beads.title,
+            description: beads.description,
+            status,
+            priority: beads.priority.min(4),
+            issue_type,
+            assignee: None,
+            session_id: None,
+            labels: vec![],
+            comments: vec![],
+            created_at,
+            updated_at,
+            closed_at,
+            blocks: vec![], // Will be filled in next pass
+            blocked_by,
+        };
+
+        store.issues.insert(new_id, issue);
+        imported += 1;
+    }
+
+    // Third pass: populate `blocks` field (reverse of blocked_by)
+    let ids: Vec<String> = store.issues.keys().cloned().collect();
+    for id in ids {
+        let blocked_by = store.issues.get(&id).unwrap().blocked_by.clone();
+        for blocker_id in blocked_by {
+            if let Some(blocker) = store.issues.get_mut(&blocker_id) {
+                if !blocker.blocks.contains(&id) {
+                    blocker.blocks.push(id.clone());
+                }
+            }
+        }
+    }
+
+    store.save()?;
+
+    if json_output {
+        println!(r#"{{"imported":{},"skipped":{},"errors":{}}}"#,
+            imported, skipped, errors.len());
+    } else {
+        println!("Imported {} issues ({} skipped, {} errors)", imported, skipped, errors.len());
+        if !errors.is_empty() {
+            println!();
+            println!("Errors:");
+            for err in &errors {
+                println!("  {}", err);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn cmd_quickstart() {
+    println!(r#"
+ba - Simple Task Tracking for LLM Sessions
+
+GETTING STARTED
+  ba init           Initialize ba in your project (creates .ba/)
+  ba quickstart     Show this guide
+
+CREATING ISSUES
+  ba create "Fix login bug" -t bug -p 1
+  ba create "Add feature" -t feature -d "Description here"
+  ba create "Research caching" -t spike -p 2
+
+ISSUE TYPES: bug, feature, task, epic, chore, refactor, spike
+PRIORITIES: 0 (critical) → 4 (backlog), default is 2
+
+VIEWING ISSUES
+  ba list           List open/in_progress issues
+  ba list --all     Include closed
+  ba list --status open
+  ba show <id>      Show full details
+  ba ready          Show issues ready to work on (open + not blocked)
+
+WORKING ON ISSUES
+  ba update <id> --status in_progress   Start work
+  ba update <id> --priority 0           Escalate priority
+  ba close <id> --reason "Fixed"        Complete work
+
+DEPENDENCIES
+  ba block <id> <blocker>    Mark <id> blocked by <blocker>
+  ba unblock <id> <blocker>  Remove block
+  ba tree <id>               Show dependency tree
+  ba cycles                  Detect circular dependencies
+
+MULTI-AGENT COORDINATION
+  ba claim <id> --session <session_id>  Claim issue for your session
+  ba mine --session <session_id>        Show your claimed issues
+  ba release <id>                       Release claim
+
+  Tip: Use your Claude session ID as --session value
+
+LABELS AND COMMENTS
+  ba label <id> add urgent
+  ba label <id> remove urgent
+  ba comment <id> "Found root cause" --author claude
+
+IMPORTING FROM BEADS (bd)
+  ba import .beads/issues.jsonl --keep-ids
+
+JSON OUTPUT (for programmatic use)
+  ba --json list
+  ba --json show <id>
+  ba --json ready
+
+TYPICAL WORKFLOW
+  1. ba ready                          # Find unblocked work
+  2. ba claim <id> --session $SESSION  # Claim it
+  3. ba update <id> --status in_progress
+  4. ... do the work ...
+  5. ba close <id> --reason "Done"
+
+DISCOVERING NEW WORK
+  1. ba create "Found bug in X" -t bug -p 1
+  2. ba block <current_id> <new_id>    # If it blocks current work
+  3. ba tree <current_id>              # Verify dependency chain
+"#);
+}
+
 fn cmd_ready(store: &Store, json_output: bool) -> Result<(), String> {
     // Ready = open issues where all blockers are closed (or no blockers)
     let mut ready: Vec<_> = store
@@ -1150,11 +1536,15 @@ fn main() {
 
     let result = match cli.command {
         Commands::Init => cmd_init(&cli.dir),
+        Commands::Quickstart => {
+            cmd_quickstart();
+            Ok(())
+        }
         _ => {
             // All other commands need a loaded store
             match Store::load(&cli.dir) {
                 Ok(mut store) => match cli.command {
-                    Commands::Init => unreachable!(),
+                    Commands::Init | Commands::Quickstart => unreachable!(),
                     Commands::Create {
                         title,
                         issue_type,
@@ -1180,6 +1570,7 @@ fn main() {
                     Commands::Mine { session } => cmd_mine(&store, &session, cli.json),
                     Commands::Label { id, action, label } => cmd_label(&mut store, &id, &action, &label, cli.json),
                     Commands::Comment { id, text, author } => cmd_comment(&mut store, &id, &text, &author, cli.json),
+                    Commands::Import { file, keep_ids } => cmd_import(&mut store, &file, keep_ids, cli.json),
                 },
                 Err(e) => Err(e),
             }

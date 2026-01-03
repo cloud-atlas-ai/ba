@@ -50,6 +50,47 @@ ac update ab-x7k2 --assignee alice
 ac close ab-x7k2 --reason "Fixed in commit abc123"
 ```
 
+## Dependencies
+
+Track blocking relationships between issues:
+
+```bash
+# Add a blocking dependency (blocker blocks id)
+ac block ab-x7k2 ab-y8m3    # ab-x7k2 is now blocked by ab-y8m3
+
+# Remove a blocking dependency
+ac unblock ab-x7k2 ab-y8m3
+
+# Visualize dependency tree
+ac tree ab-x7k2
+# Output:
+# ab-x7k2: Fix auth bug [OPEN]
+# └── ab-y8m3: Add user model [IN_PROGRESS]
+
+# Detect circular dependencies
+ac cycles
+```
+
+## Ready Queue
+
+Show issues ready to work on (open + not blocked):
+
+```bash
+ac ready
+# Output:
+#   ID        P  TYPE     TITLE
+#   ------------------------------------------------------------
+#   ab-x7k2   0  bug      Fix critical auth bug
+#   ab-z9n4   1  feature  Add dashboard
+#   ab-a1b2   2  task     Write tests
+#
+# 3 issue(s) ready
+```
+
+An issue is "ready" when:
+- Status is `open` (not `in_progress` or `closed`)
+- All blocking issues are `closed` (or has no blockers)
+
 ## Issue Types
 
 - `bug` - Something broken

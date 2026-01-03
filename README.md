@@ -43,14 +43,40 @@ ba list --status open      # Filter by status
 
 # Show issue details
 ba show ab-x7k2
+```
 
-# Update issues
-ba update ab-x7k2 --status in_progress
-ba update ab-x7k2 --priority 0
-ba update ab-x7k2 --assignee alice
+## Ownership-Based Workflow
 
-# Close issues
-ba close ab-x7k2 --reason "Fixed in commit abc123"
+Status is a side-effect of ownership transitions, not set directly:
+
+```bash
+# Take ownership (open/closed → in_progress)
+ba claim ab-x7k2 --session claude-abc123
+
+# Abandon work (in_progress → open)
+ba release ab-x7k2
+
+# Complete work (in_progress → closed)
+ba finish ab-x7k2
+
+# Close unclaimed issue (escape hatch)
+ba close ab-x7k2
+```
+
+This ensures every in-progress issue has an owner. Claiming a closed issue cleanly reopens it.
+
+## Modifying Issues
+
+```bash
+# Change priority
+ba priority ab-x7k2 0      # 0 = critical
+
+# Add/remove labels
+ba label ab-x7k2 add urgent
+ba label ab-x7k2 remove urgent
+
+# Add comments
+ba comment ab-x7k2 "Found root cause" --author claude
 ```
 
 ## Dependencies
@@ -96,39 +122,23 @@ An issue is "ready" when:
 
 ## Multi-Agent Coordination
 
-When multiple LLM agents work on the same codebase, use claims to coordinate:
+When multiple LLM agents work on the same codebase:
 
 ```bash
 # Claim an issue (caller provides their session ID)
 ba claim ab-x7k2 --session claude-abc123
-# Sets status to in_progress, records session_id
 
 # See what you've claimed
 ba mine --session claude-abc123
 
-# Release when done or switching
+# Complete work
+ba finish ab-x7k2
+
+# Or release back to pool
 ba release ab-x7k2
-# Sets status back to open, clears session_id
 ```
 
-Claiming prevents other agents from working on the same issue. The session ID is whatever the caller provides (e.g., Claude's session ID).
-
-## Labels and Comments
-
-Organize and discuss issues:
-
-```bash
-# Add/remove labels
-ba label ab-x7k2 add urgent
-ba label ab-x7k2 add backend
-ba label ab-x7k2 remove urgent
-
-# Add comments
-ba comment ab-x7k2 "Found the root cause" --author claude
-ba comment ab-x7k2 "Fixed in commit abc123"  # defaults to anonymous
-```
-
-Labels and comments are shown in `ba show` output.
+The ownership model ensures no two agents work on the same issue. See [Ownership-Based Workflow](#ownership-based-workflow) above.
 
 ## Importing from Beads
 
@@ -204,7 +214,7 @@ ba --json create "New issue" -t task
 
 ## Acknowledgment
 
-`ac` is inspired by [beads](https://github.com/steveyegge/beads) by Steve Yegge - an excellent issue tracker for AI-assisted development. We loved beads v0.9.6's simplicity before it evolved into a full messaging/routing system. `ac` takes that original simplicity and adds session-based claiming for multi-agent coordination.
+`ba` is inspired by [beads](https://github.com/steveyegge/beads) by Steve Yegge - an excellent issue tracker for AI-assisted development. We loved beads v0.9.6's simplicity before it evolved into a full messaging/routing system. `ba` takes that original simplicity and adds an ownership-based state machine for multi-agent coordination.
 
 ## License
 

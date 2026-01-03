@@ -110,6 +110,23 @@ ac release ab-x7k2
 
 Claiming prevents other agents from working on the same issue. The session ID is whatever the caller provides (e.g., Claude's session ID).
 
+## Labels and Comments
+
+Organize and discuss issues:
+
+```bash
+# Add/remove labels
+ac label ab-x7k2 add urgent
+ac label ab-x7k2 add backend
+ac label ab-x7k2 remove urgent
+
+# Add comments
+ac comment ab-x7k2 "Found the root cause" --author claude
+ac comment ab-x7k2 "Fixed in commit abc123"  # defaults to anonymous
+```
+
+Labels and comments are shown in `ac show` output.
+
 ## Issue Types
 
 - `bug` - Something broken

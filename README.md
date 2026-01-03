@@ -105,4 +105,4 @@ ac --json create "New issue" -t task
 
 ## License
 
-MIT
+Source-available. See [LICENSE](LICENSE) for details.

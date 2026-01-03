@@ -3,6 +3,14 @@ name = "ac"
 version = "0.1.0"
 edition = "2024"
 description = "Simple task tracking for LLM sessions"
+license = "LicenseRef-Proprietary"
+repository = "https://github.com/cloud-atlas-ai/ac"
+keywords = ["ai", "tasks", "llm", "multi-agent"]
+categories = ["command-line-utilities", "development-tools"]
+
+[[bin]]
+name = "ac"
+path = "src/main.rs"
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }

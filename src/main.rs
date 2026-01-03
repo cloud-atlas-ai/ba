@@ -320,6 +320,9 @@ enum Commands {
 
     /// Detect circular dependencies
     Cycles,
+
+    /// Show issues ready to work on (open, not blocked)
+    Ready,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -840,6 +843,67 @@ fn normalize_cycle(cycle: &[String]) -> Vec<String> {
     normalized
 }
 
+fn cmd_ready(store: &Store, json_output: bool) -> Result<(), String> {
+    // Ready = open issues where all blockers are closed (or no blockers)
+    let mut ready: Vec<_> = store
+        .issues
+        .values()
+        .filter(|issue| {
+            // Must be open
+            if issue.status != Status::Open {
+                return false;
+            }
+            // All blockers must be closed
+            issue.blocked_by.iter().all(|blocker_id| {
+                store
+                    .issues
+                    .get(blocker_id)
+                    .map(|b| b.status == Status::Closed)
+                    .unwrap_or(true) // Missing blocker = not blocking
+            })
+        })
+        .collect();
+
+    // Sort by priority, then by created_at
+    ready.sort_by(|a, b| {
+        a.priority
+            .cmp(&b.priority)
+            .then_with(|| a.created_at.cmp(&b.created_at))
+    });
+
+    if json_output {
+        println!("{}", serde_json::to_string(&ready).unwrap());
+        return Ok(());
+    }
+
+    if ready.is_empty() {
+        println!("No issues ready to work on.");
+        return Ok(());
+    }
+
+    println!();
+    println!(
+        "  {:<8} {:>2}  {:<8} {}",
+        "ID", "P", "TYPE", "TITLE"
+    );
+    println!("  {}", "-".repeat(60));
+
+    for issue in &ready {
+        println!(
+            "  {:<8} {:>2}  {:<8} {}",
+            issue.id,
+            issue.priority,
+            issue.issue_type,
+            truncate(&issue.title, 40)
+        );
+    }
+
+    println!();
+    println!("{} issue(s) ready", ready.len());
+
+    Ok(())
+}
+
 fn truncate(s: &str, max: usize) -> String {
     if s.len() <= max {
         s.to_string()
@@ -881,6 +945,7 @@ fn main() {
                     Commands::Unblock { id, blocker } => cmd_unblock(&mut store, &id, &blocker, cli.json),
                     Commands::Tree { id } => cmd_tree(&store, &id, cli.json),
                     Commands::Cycles => cmd_cycles(&store, cli.json),
+                    Commands::Ready => cmd_ready(&store, cli.json),
                 },
                 Err(e) => Err(e),
             }

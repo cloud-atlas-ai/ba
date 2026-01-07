@@ -6,7 +6,7 @@ This directory contains the Codex skill definition for ba task tracking.
 
 Codex is Claude Code's skill system. Skills provide structured prompts that Claude can invoke during coding sessions to access specialized capabilities.
 
-The ba skill (`$ba`) gives Claude direct access to task tracking commands with proper context about ownership-based workflows and multi-agent coordination.
+The ba skill (`$ba`) gives Claude direct access to task-tracking commands with proper context about ownership-based workflows and multi-agent coordination.
 
 ## Files
 

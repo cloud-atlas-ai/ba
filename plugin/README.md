@@ -1,6 +1,6 @@
 # ba Claude Code Plugin
 
-Claude Code plugin for ba task tracking integration.
+Claude Code plugin for ba task-tracking integration.
 
 ## What This Plugin Provides
 
@@ -83,7 +83,7 @@ Displays a concise command reference card.
 
 ## Project Structure
 
-```
+```text
 plugin/
 ├── .claude-plugin/
 │   └── plugin.json       # Plugin manifest
@@ -165,7 +165,7 @@ See the main [ba README](../README.md) for binary documentation.
 
 ## Relationship to Codex Skill
 
-```
+```text
 ba/
 ├── plugin/                # This directory
 │   └── commands/          # Slash commands (/ba init, /ba status)
@@ -196,7 +196,7 @@ This plugin makes ba's workflow first-class in Claude Code, with:
 
 ### First-Time Setup
 
-```
+```text
 User: Let's use ba for task tracking
 Claude: I'll initialize ba for this project
   [Runs: /ba init]
@@ -220,7 +220,7 @@ Claude: [Runs: brew install cloud-atlas-ai/ba/ba]
 
 ### During a Session
 
-```
+```text
 Claude: Let me check what tasks are available
   [Uses: $ba ready]
 

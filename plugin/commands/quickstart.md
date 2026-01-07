@@ -6,7 +6,7 @@ Show a quick start guide for using ba in this session.
 
 Show this concise reference:
 
-```
+```text
 ba - Task Tracking Quick Start
 ==============================
 
@@ -61,7 +61,7 @@ More info: ba --help or README.md
 ## Check if initialized
 
 If `.ba/` doesn't exist, suggest:
-```
+```text
 ba not initialized yet. Run:
   /ba init
 ```

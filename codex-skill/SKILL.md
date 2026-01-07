@@ -220,7 +220,7 @@ ba release ab-x7k2           # If can't complete
 
 ba uses ownership-based state transitions:
 
-```
+```text
 open ──claim──> in_progress ──finish──> closed
        (take)                  (done)
                     │
@@ -310,7 +310,7 @@ export SESSION_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
 ### Error Handling
 
 If SESSION_ID is not set, ba commands will fail with:
-```
+```text
 ERROR: --session is required
 ```
 
@@ -351,7 +351,7 @@ jq empty .ba/issues.jsonl  # Exit 0 = valid, non-zero = syntax error
 
 ## Quick Reference Card
 
-```
+```text
 ba ready                            # See available work
 ba claim <id> --session $SESSION_ID # Take ownership
 ba show <id>                        # Check details

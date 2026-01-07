@@ -156,7 +156,7 @@ fi
 ## Step 6: Confirm
 
 Tell user:
-```
+```text
 ✓ ba initialized and ready
 
 Created .ba/ directory with project config

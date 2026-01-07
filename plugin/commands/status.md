@@ -54,7 +54,7 @@ ba mine --session "$SESSION_ID"
 
 Present information concisely:
 
-```
+```text
 ✓ ba initialized
 
 Project: ab (prefix)

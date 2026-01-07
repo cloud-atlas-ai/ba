@@ -50,10 +50,10 @@ Claude will execute the appropriate ba commands with proper session management.
 
 To document ba usage for Claude in your project:
 
-1. Create or update your `CLAUDE.md` file
-2. Add the section from `CLAUDE.md.snippet`:
+1. Create or update your `AGENTS.md` file
+2. Add the section from `AGENTS.md.snippet`:
    ```bash
-   tail -n +5 ~/.codex/skills/ba/CLAUDE.md.snippet >> CLAUDE.md
+   tail -n +5 ~/.codex/skills/ba/AGENTS.md.snippet >> AGENTS.md
    ```
 
 Or use the plugin's init command:
@@ -61,7 +61,7 @@ Or use the plugin's init command:
 /ba init
 ```
 
-This automatically updates CLAUDE.md with ba guidance.
+This automatically updates AGENTS.md with ba guidance.
 
 ## Design Philosophy
 

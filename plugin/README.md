@@ -28,7 +28,7 @@ See [codex-skill/SKILL.md](../codex-skill/SKILL.md) for full skill documentation
 The init command automatically:
 1. Installs the ba binary (via Homebrew or Cargo)
 2. Runs `ba init` to create `.ba/` directory
-3. Updates `CLAUDE.md` with ba workflow guidance
+3. Updates `AGENTS.md` with ba workflow guidance
 
 ## Installation
 
@@ -209,7 +209,7 @@ Claude: I'll initialize ba for this project
 User: Use Homebrew
 Claude: [Runs: brew install cloud-atlas-ai/ba/ba]
   [Runs: ba init]
-  [Updates CLAUDE.md]
+  [Updates AGENTS.md]
 
   ✓ ba initialized and ready
 

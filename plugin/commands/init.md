@@ -55,12 +55,12 @@ This creates `.ba/` directory with:
 - `config.json` - Project config (version, ID prefix)
 - `issues.jsonl` - Issue storage
 
-## Step 4: Update CLAUDE.md
+## Step 4: Update AGENTS.md
 
-Check if `CLAUDE.md` exists in the project root. If not, create it with:
+Check if `AGENTS.md` exists in the project root. If not, create it with:
 
 ```markdown
-# CLAUDE.md
+# AGENTS.md
 
 This file provides guidance to Claude Code when working with code in this repository.
 
@@ -99,11 +99,11 @@ This project uses ba for task tracking. You have the `$ba` skill available in Co
 See README.md for full details.
 ```
 
-If `CLAUDE.md` already exists, append the ba section:
+If `AGENTS.md` already exists, append the ba section:
 
 ```bash
-# Quoted heredoc prevents $SESSION_ID expansion in CLAUDE.md
-cat >> CLAUDE.md << 'EOF'
+# Quoted heredoc prevents $SESSION_ID expansion in AGENTS.md
+cat >> AGENTS.md << 'EOF'
 
 ## ba Task Tracking
 
@@ -160,7 +160,7 @@ Tell user:
 ✓ ba initialized and ready
 
 Created .ba/ directory with project config
-Added ba guidance to CLAUDE.md
+Added ba guidance to AGENTS.md
 
 Quick start:
   ba create "Your first task" -t task

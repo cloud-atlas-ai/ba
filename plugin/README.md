@@ -6,7 +6,7 @@ Claude Code plugin for ba task-tracking integration.
 
 ### Slash Commands
 
-- `/ba init` - Initialize ba for a project, install binary if needed, update CLAUDE.md
+- `/ba init` - Initialize ba for a project, install binary if needed, install Codex skill, update AGENTS.md
 - `/ba status` - Show current ba status, issue counts, your claimed issues
 - `/ba quickstart` - Display quick reference guide
 
@@ -28,7 +28,8 @@ See [codex-skill/SKILL.md](../codex-skill/SKILL.md) for full skill documentation
 The init command automatically:
 1. Installs the ba binary (via Homebrew or Cargo)
 2. Runs `ba init` to create `.ba/` directory
-3. Updates `AGENTS.md` with ba workflow guidance
+3. Downloads and installs the `$ba` Codex skill files to `~/.codex/skills/ba/`
+4. Updates `AGENTS.md` with ba workflow guidance
 
 ## Installation
 
@@ -41,8 +42,13 @@ claude plugin install ba
 ### From Source (Development)
 
 ```bash
-cd /path/to/ba
-claude plugin install plugin/
+# Clone and add as local marketplace
+git clone https://github.com/cloud-atlas-ai/ba.git
+cd ba
+claude plugin marketplace add $PWD
+
+# Install plugin (includes Codex skill)
+claude plugin install ba@ba
 ```
 
 ## Usage
@@ -59,7 +65,8 @@ This will:
 - Check if ba is already initialized
 - Install ba binary if not available (offers Homebrew or Cargo)
 - Run `ba init` to create `.ba/` structure
-- Update CLAUDE.md with ba guidance
+- Install `$ba` Codex skill to `~/.codex/skills/ba/`
+- Update AGENTS.md with ba guidance
 
 ### Checking Status
 
@@ -148,8 +155,8 @@ After making changes:
 vim .claude-plugin/plugin.json
 
 # Reinstall for testing
-claude plugin uninstall ba
-claude plugin install plugin/
+claude plugin uninstall ba@ba
+claude plugin install ba@ba
 ```
 
 ## Integration with ba Binary
@@ -209,6 +216,7 @@ Claude: I'll initialize ba for this project
 User: Use Homebrew
 Claude: [Runs: brew install cloud-atlas-ai/ba/ba]
   [Runs: ba init]
+  [Installs $ba Codex skill to ~/.codex/skills/ba/]
   [Updates AGENTS.md]
 
   ✓ ba initialized and ready
@@ -216,6 +224,9 @@ Claude: [Runs: brew install cloud-atlas-ai/ba/ba]
   Quick start:
     ba create "Your first task" -t task
     ba list
+
+  Use $ba commands in Codex mode:
+    $ba ready, $ba claim <id>, $ba finish <id>
 ```
 
 ### During a Session

@@ -17,11 +17,35 @@ A spiritual fork of [beads](https://github.com/steveyegge/beads) (`bd`), keeping
 
 ## Installation
 
+### Binary
+
 ```bash
 cargo install ba
 # or build from source
 cargo build --release
 ```
+
+### Claude Code Integration
+
+**Plugin and Codex skill are available but not yet published to a marketplace.**
+
+Manual installation (after cloning this repo):
+
+```bash
+# Install Codex skill
+mkdir -p ~/.codex/skills/ba
+cp codex-skill/SKILL.md ~/.codex/skills/ba/
+cp codex-skill/AGENTS.md.snippet ~/.codex/skills/ba/
+
+# Add to your project's AGENTS.md
+tail -n +5 ~/.codex/skills/ba/AGENTS.md.snippet >> AGENTS.md
+```
+
+See detailed setup:
+- [plugin/README.md](plugin/README.md) - Plugin commands (slash commands)
+- [codex-skill/README.md](codex-skill/README.md) - Codex skill ($ba commands)
+
+**Future:** `claude plugin install ba@ba-marketplace` (when published)
 
 ## Quick Start
 

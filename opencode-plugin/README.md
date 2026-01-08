@@ -71,17 +71,17 @@ The plugin provides three tools:
 ### Usage Examples
 
 **Initialize ba:**
-```
+```text
 "use the ba-init tool to set up ba for this project"
 ```
 
 **Check status:**
-```
+```text
 "check ba status"
 ```
 
 **Get quick reference:**
-```
+```text
 "show ba quickstart"
 ```
 

@@ -15,7 +15,7 @@
   "devDependencies": {
     "@opencode-ai/plugin": "^1.0.61",
     "@types/bun": "^1.2.4",
-    "typescript": "^5.7.0"
+    "typescript": "^5.6.7"
   },
   "peerDependencies": {
     "bun": ">=1.0.0"

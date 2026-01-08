@@ -27,22 +27,17 @@ cargo build --release
 
 ### Claude Code Plugin
 
+Install directly from GitHub:
 ```bash
-# Clone this repository
-git clone https://github.com/cloud-atlas-ai/ba.git
-cd ba
-
-# Add ba marketplace from local directory
-claude plugin marketplace add $PWD
-
-# Install ba plugin (includes Codex skill)
+claude plugin marketplace add https://github.com/cloud-atlas-ai/ba
 claude plugin install ba@ba
 ```
 
-After [PR #1](https://github.com/cloud-atlas-ai/ba/pull/1) merges to master:
+Or install from local clone:
 ```bash
-# Simpler: install directly from GitHub
-claude plugin marketplace add https://github.com/cloud-atlas-ai/ba
+git clone https://github.com/cloud-atlas-ai/ba.git
+cd ba
+claude plugin marketplace add $PWD
 claude plugin install ba@ba
 ```
 

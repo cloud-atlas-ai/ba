@@ -19,7 +19,35 @@ If user provides something vague like "fix the thing" or "improve performance", 
 - What behavior should change?
 - What does success look like?
 
-## Step 2: Assess scope
+## Step 2: Check for duplicates
+
+Before creating, search existing tasks for similar work:
+
+```bash
+ba list --all --json | jq -r '.[] | "\(.id): \(.title) (\(.status))"'
+```
+
+Look for tasks with:
+- Similar keywords in the title
+- Related subject matter
+- Same general area of the codebase
+
+**If a potential duplicate is found:**
+
+```text
+I found an existing task that might be related:
+  <id>: <title> (<status>)
+
+Is this the same work, or something different?
+```
+
+If same work:
+- If closed: Ask if user wants to reopen it
+- If open/in_progress: Point them to it, no new task needed
+
+If different work: Proceed with creation. Consider adding a comment mentioning the related task ID for context.
+
+## Step 3: Assess scope
 
 Evaluate if the task is properly scoped. A well-scoped task:
 - Can be completed in a single focused session
@@ -45,7 +73,7 @@ This sounds like it could be multiple tasks. I see:
 Should I create these as separate tasks? They can be linked as dependencies if needed.
 ```
 
-## Step 3: Refine the title
+## Step 4: Refine the title
 
 Help craft an actionable title. Good titles:
 - Start with a verb (Add, Fix, Update, Remove, Implement, Refactor)
@@ -65,7 +93,7 @@ How about: "[refined title]"
 Does this capture what you want to do?
 ```
 
-## Step 4: Determine type
+## Step 5: Determine type
 
 Based on the work described, recommend a type:
 
@@ -78,7 +106,7 @@ Based on the work described, recommend a type:
 This sounds like a [type]. [Brief explanation of why]
 ```
 
-## Step 5: Add context (optional)
+## Step 6: Add context (optional)
 
 For non-trivial tasks, ask if there's additional context:
 
@@ -91,7 +119,7 @@ Any additional context to capture? For example:
 
 If user provides context, it becomes a comment on the created task.
 
-## Step 6: Set priority
+## Step 7: Set priority
 
 Offer priority options:
 
@@ -106,7 +134,7 @@ Priority?
 
 Default to P2 if user doesn't specify.
 
-## Step 7: Handle dependencies (if multiple tasks)
+## Step 8: Handle dependencies (if multiple tasks)
 
 If creating multiple tasks, ask about dependencies:
 
@@ -115,7 +143,7 @@ Should any of these tasks block others?
 For example: Task 2 depends on Task 1 being done first.
 ```
 
-## Step 8: Create task(s)
+## Step 9: Create task(s)
 
 Execute the creation:
 
@@ -133,7 +161,7 @@ ba create "Second task (depends on first)" -t task -p 2
 ba block <second-id> <first-id>
 ```
 
-## Step 9: Confirm
+## Step 10: Confirm
 
 Show what was created:
 

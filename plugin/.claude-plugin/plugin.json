@@ -3,9 +3,9 @@
   "version": "0.2.1",
   "description": "Simple task tracking for LLM sessions - ownership-based workflow for multi-agent coordination",
   "author": {
-    "name": "Cloud Atlas AI",
-    "email": "hello@cloudatlas.ai",
-    "url": "https://github.com/cloud-atlas-ai"
+    "name": "Open Horizon Labs",
+    "email": "hello@ohl.dev",
+    "url": "https://github.com/open-horizon-labs"
   },
-  "repository": "https://github.com/cloud-atlas-ai/ba"
+  "repository": "https://github.com/open-horizon-labs/ba"
 }

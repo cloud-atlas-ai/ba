@@ -41,6 +41,11 @@ jobs:
   #   build:all    - Build everything
   #   build-me     - Trigger build (required for labeled events)
   #
+  # IMPORTANT: The 'build-me' label is required to trigger builds on PRs.
+  # Adding 'build:macos' or 'build:linux' alone won't work - you must also
+  # add 'build-me' to actually start the build. This prevents accidental
+  # builds when labels are added for categorization purposes.
+  #
   plan:
     name: Plan
     runs-on: ubuntu-latest
@@ -216,6 +221,9 @@ jobs:
           tar -czvf ba-${{ needs.plan.outputs.version }}-${{ matrix.target }}.tar.gz ba
           shasum -a 256 ba-${{ needs.plan.outputs.version }}-${{ matrix.target }}.tar.gz > ba-${{ needs.plan.outputs.version }}-${{ matrix.target }}.tar.gz.sha256
 
+      - name: Verify binary
+        run: ./dist/ba --version
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
@@ -281,6 +289,9 @@ jobs:
           cd dist
           tar -czvf ba-${{ needs.plan.outputs.version }}-${{ matrix.target }}.tar.gz ba
           sha256sum ba-${{ needs.plan.outputs.version }}-${{ matrix.target }}.tar.gz > ba-${{ needs.plan.outputs.version }}-${{ matrix.target }}.tar.gz.sha256
+
+      - name: Verify binary
+        run: ./dist/ba --version
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -457,6 +468,7 @@ jobs:
       - name: Publish to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        # --allow-dirty is needed because we modify Cargo.toml version in CI
         run: cargo publish --allow-dirty
 
   # =============================================================================

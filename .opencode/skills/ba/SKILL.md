@@ -1,3 +1,4 @@
+<!-- This file is synced from codex-skill/SKILL.md. Full consolidation is a larger task for later. -->
 ---
 name: ba
 description: Task tracker for LLM sessions. Use "$ba ready" to see available work, "$ba claim <id>" to take ownership, "$ba finish <id>" when done.
